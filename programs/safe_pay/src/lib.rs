@@ -58,7 +58,7 @@ fn transfer_escrow_out<'info>(
         bump_vector.as_ref(),
     ];
     let outer = vec![inner.as_slice()];
-
+    msg!("starttt");
     // Perform the actual transfer
     let transfer_instruction = Transfer{
         from: escrow_wallet.to_account_info(),
@@ -71,6 +71,7 @@ fn transfer_escrow_out<'info>(
         outer.as_slice(),
     );
     anchor_spl::token::transfer(cpi_ctx, amount)?;
+    msg!("transferedddddd");
 
 
     // Use the `reload()` function on an account to reload it's state. Since we performed the
@@ -377,9 +378,9 @@ pub struct CompleteGrant<'info> {
 
     // Users and accounts in the system
     #[account(mut)]
-    user_sending: AccountInfo<'info>,                     // Alice
+    user_sending: Signer<'info>,                     // Alice
     #[account(mut)]
-    user_receiving: Signer<'info>,                        // Bob
+    user_receiving: AccountInfo<'info>,                        // Bob
     mint_of_token_being_sent: Account<'info, Mint>,       // USDC
 
     // Application level accounts
