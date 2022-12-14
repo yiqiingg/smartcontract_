@@ -30,7 +30,7 @@ describe('safe_pay', () => {
   const getPdaParams = async (
     connection: anchor.web3.Connection,
     alice: anchor.web3.PublicKey,
-    bob: anchor.web3.PublicKey,
+    // bob: anchor.web3.PublicKey,
     mint: anchor.web3.PublicKey
   ): Promise<PDAParameters> => {
     const uid = new anchor.BN(parseInt((Date.now() / 1000).toString()));
@@ -41,7 +41,7 @@ describe('safe_pay', () => {
         [
           Buffer.from('state'),
           alice.toBuffer(),
-          bob.toBuffer(),
+          // bob.toBuffer(),
           mint.toBuffer(),
           uidBuffer,
         ],
@@ -52,7 +52,7 @@ describe('safe_pay', () => {
         [
           Buffer.from('wallet'),
           alice.toBuffer(),
-          bob.toBuffer(),
+          // bob.toBuffer(),
           mint.toBuffer(),
           uidBuffer,
         ],
@@ -67,6 +67,7 @@ describe('safe_pay', () => {
     };
   };
 
+  console.log("Created PDA params");
   const createMint = async (
     connection: anchor.web3.Connection
   ): Promise<anchor.web3.PublicKey> => {
@@ -217,56 +218,56 @@ describe('safe_pay', () => {
     pda = await getPdaParams(
       provider.connection,
       alice.publicKey,
-      bob.publicKey,
+      //bob.publicKey,
       mintAddress
     );
   });
 
-  // it('can initialize a safe payment by Alice', async () => {
-  //   const [, aliceBalancePre] = await readAccount(aliceWallet, provider);
-  //   assert.equal(aliceBalancePre, '1337000000');
+  it('can initialize a safe payment by Alice', async () => {
+    const [, aliceBalancePre] = await readAccount(aliceWallet, provider);
+    assert.equal(aliceBalancePre, '1337000000');
 
-  //   const amount = new anchor.BN(20000000);
+    const amount = new anchor.BN(20000000);
 
-  //   // Initialize mint account and fund the account
-  //   const tx1 = await program.rpc.initializeNewGrant(
-  //     pda.idx,
-  //     pda.stateBump,
-  //     pda.escrowBump,
-  //     amount,
-  //     {
-  //       accounts: {
-  //         applicationState: pda.stateKey,
-  //         escrowWalletState: pda.escrowWalletKey,
-  //         mintOfTokenBeingSent: mintAddress,
-  //         userSending: alice.publicKey,
-  //         userReceiving: bob.publicKey,
-  //         walletToWithdrawFrom: aliceWallet,
+    // Initialize mint account and fund the account
+    const tx1 = await program.rpc.initializeNewGrant(
+      pda.idx,
+      pda.stateBump,
+      pda.escrowBump,
+      amount,
+      {
+        accounts: {
+          applicationState: pda.stateKey,
+          escrowWalletState: pda.escrowWalletKey,
+          mintOfTokenBeingSent: mintAddress,
+          userSending: alice.publicKey,
+          // userReceiving: bob.publicKey,
+          walletToWithdrawFrom: aliceWallet,
 
-  //         systemProgram: anchor.web3.SystemProgram.programId,
-  //         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-  //         tokenProgram: spl.TOKEN_PROGRAM_ID,
-  //       },
-  //       signers: [alice],
-  //     }
-  //   );
-  //   console.log(
-  //     `Initialized a new Safe Pay instance. Alice will pay bob 20 tokens`
-  //   );
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+        },
+        signers: [alice],
+      }
+    );
+    console.log(
+      `Initialized a new Safe Pay instance. Alice will pay bob 20 tokens`
+    );
 
-  //   // Assert that 20 tokens were moved from Alice's account to the escrow.
-  //   const [, aliceBalancePost] = await readAccount(aliceWallet, provider);
-  //   assert.equal(aliceBalancePost, '1317000000');
-  //   const [, escrowBalancePost] = await readAccount(
-  //     pda.escrowWalletKey,
-  //     provider
-  //   );
-  //   assert.equal(escrowBalancePost, '20000000');
+    // Assert that 20 tokens were moved from Alice's account to the escrow.
+    const [, aliceBalancePost] = await readAccount(aliceWallet, provider);
+    assert.equal(aliceBalancePost, '1317000000');
+    const [, escrowBalancePost] = await readAccount(
+      pda.escrowWalletKey,
+      provider
+    );
+    assert.equal(escrowBalancePost, '20000000');
 
-  //   const state = await program.account.state.fetch(pda.stateKey);
-  //   assert.equal(state.amountTokens.toString(), '20000000');
-  //   assert.equal(state.stage.toString(), '1');
-  // });
+    const state = await program.account.state.fetch(pda.stateKey);
+    assert.equal(state.amountTokens.toString(), '20000000');
+    assert.equal(state.stage.toString(), '1');
+  });
 
   it('can send escrow funds to Bob', async () => {
     const [, aliceBalancePre] = await readAccount(aliceWallet, provider);
