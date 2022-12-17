@@ -3,7 +3,7 @@ use anchor_spl::{associated_token::AssociatedToken, token::{CloseAccount, Mint, 
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
-#[error]
+#[error_code]
 pub enum ErrorCode {
     #[msg("Wallet to withdraw from is not owned by owner")]
     WalletToWithdrawFromInvalid,
@@ -42,7 +42,7 @@ fn transfer_escrow_out<'info>(
     token_program: AccountInfo<'info>,
     destination_wallet: AccountInfo<'info>,
     amount: u64
-) -> ProgramResult {
+) -> Result<()> {
 
     // Nothing interesting here! just boilerplate to compute our signer seeds for
     // signing on behalf of our PDA.
@@ -105,7 +105,7 @@ pub mod safe_pay {
     use anchor_spl::token::Transfer;
     use super::*;
 
-    pub fn complete_grant(ctx: Context<CompleteGrant>, application_idx: u64, state_bump: u8, _wallet_bump: u8) -> ProgramResult {
+    pub fn complete_grant(ctx: Context<CompleteGrant>, application_idx: u64, state_bump: u8, _wallet_bump: u8) -> Result<()> {
         if Stage::from(ctx.accounts.application_state.stage)? != Stage::FundsDeposited {
             msg!("Stage is invalid, state stage is {}", ctx.accounts.application_state.stage);
             return Err(ErrorCode::StageInvalid.into());
@@ -156,7 +156,7 @@ pub mod safe_pay {
     //     Ok(())
     // }
 
-    pub fn initialize_new_grant(ctx: Context<InitializeNewGrant>, application_idx: u64, state_bump: u8, _wallet_bump: u8, amount: u64) -> ProgramResult {
+    pub fn initialize_new_grant(ctx: Context<InitializeNewGrant>, application_idx: u64, state_bump: u8, _wallet_bump: u8, amount: u64) -> Result<()> {
 
         // Set the state attributes
         let state = &mut ctx.accounts.application_state;
@@ -267,7 +267,7 @@ impl Stage {
         }
     }
 
-    fn from(val: u8) -> std::result::Result<Stage, ProgramError> {
+    fn from(val: u8) -> Result<Stage> {
         match val {
             1 => Ok(Stage::FundsDeposited),
             2 => Ok(Stage::EscrowComplete),
@@ -310,6 +310,8 @@ pub struct State {
     stage: u8,
 }
 
+// let max_space_size = State::MAXIMUM_SIZE;
+
 #[derive(Accounts)]
 #[instruction(application_idx: u64, state_bump: u8, wallet_bump: u8)]
 pub struct InitializeNewGrant<'info> {
@@ -320,7 +322,9 @@ pub struct InitializeNewGrant<'info> {
         payer = user_sending,
         // seeds=[b"state".as_ref(), user_sending.key().as_ref(), user_receiving.key.as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
         seeds=[b"state".as_ref(), user_sending.key().as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
-        bump = state_bump,
+        // bump = state_bump,
+        bump,
+        space = 128
     )]
     application_state: Account<'info, State>,
     #[account(
@@ -328,7 +332,8 @@ pub struct InitializeNewGrant<'info> {
         payer = user_sending,
         // seeds=[b"wallet".as_ref(), user_sending.key().as_ref(), user_receiving.key.as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
         seeds=[b"wallet".as_ref(), user_sending.key().as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
-        bump = wallet_bump,
+        // bump = wallet_bump,
+        bump,
         token::mint=mint_of_token_being_sent,
         token::authority=application_state,
     )]
@@ -361,6 +366,7 @@ pub struct CompleteGrant<'info> {
         mut,
         seeds=[b"state".as_ref(), user_sending.key().as_ref(), user_receiving.key.as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
         bump = state_bump,
+        // bump
         has_one = user_sending,
         // has_one = user_receiving,
         has_one = mint_of_token_being_sent,
@@ -370,12 +376,13 @@ pub struct CompleteGrant<'info> {
         mut,
         seeds=[b"wallet".as_ref(), user_sending.key().as_ref(), user_receiving.key.as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
         bump = wallet_bump,
+        // bump
     )]
     escrow_wallet_state: Account<'info, TokenAccount>,
 
     #[account(
-        init_if_needed,
-        payer = user_receiving,
+        // init_if_needed,
+        // payer = user_receiving,
         associated_token::mint = mint_of_token_being_sent,
         associated_token::authority = user_receiving,
     )]
@@ -403,7 +410,8 @@ pub struct PullBackInstruction<'info> {
         mut,
         // seeds=[b"state".as_ref(), user_sending.key().as_ref(), user_receiving.key.as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
         seeds=[b"state".as_ref(), user_sending.key().as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
-        bump = state_bump,
+        // bump = state_bump
+        bump,
         has_one = user_sending,
         // has_one = user_receiving,
         has_one = mint_of_token_being_sent,
@@ -413,7 +421,8 @@ pub struct PullBackInstruction<'info> {
         mut,
         // seeds=[b"wallet".as_ref(), user_sending.key().as_ref(), user_receiving.key.as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
         seeds=[b"wallet".as_ref(), user_sending.key().as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
-        bump = wallet_bump,
+        // bump = wallet_bump,
+        bump,
     )]
     escrow_wallet_state: Account<'info, TokenAccount>,    
     // Users and accounts in the system
