@@ -324,7 +324,7 @@ pub struct InitializeNewGrant<'info> {
         seeds=[b"state".as_ref(), user_sending.key().as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
         // bump = state_bump,
         bump,
-        space = 128
+        space = 144
     )]
     application_state: Account<'info, State>,
     #[account(

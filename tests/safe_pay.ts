@@ -58,6 +58,7 @@ describe('safe_pay', () => {
         ],
         program.programId
       );
+    console.log("Created PDA params");
     return {
       idx: uid,
       escrowBump: walletBump,
@@ -67,7 +68,6 @@ describe('safe_pay', () => {
     };
   };
 
-  console.log("Created PDA params");
   const createMint = async (
     connection: anchor.web3.Connection
   ): Promise<anchor.web3.PublicKey> => {
@@ -229,6 +229,7 @@ describe('safe_pay', () => {
 
     const amount = new anchor.BN(20000000);
 
+    console.log("made it");
     // Initialize mint account and fund the account
     const tx1 = await program.rpc.initializeNewGrant(
       pda.idx,
