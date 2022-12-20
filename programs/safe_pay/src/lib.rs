@@ -103,11 +103,11 @@ pub mod safe_pay {
     use anchor_spl::token::Transfer;
     use super::*;
 
-    pub fn complete_grant(ctx: Context<CompleteGrant>, application_idx: u64, state_bump: u8, _wallet_bump: u8) -> Result<()> {
-        if Stage::from(ctx.accounts.application_state.stage)? != Stage::FundsDeposited {
-            msg!("Stage is invalid, state stage is {}", ctx.accounts.application_state.stage);
-            return Err(ErrorCode::StageInvalid.into());
-        }
+    pub fn complete_grant(ctx: Context<CompleteGrant>, application_idx: u64, state_bump: u8, _wallet_bump: u8, amount: u64) -> Result<()> {
+        // if Stage::from(ctx.accounts.application_state.stage)? != Stage::FundsDeposited {
+        //     msg!("Stage is invalid, state stage is {}", ctx.accounts.application_state.stage);
+        //     return Err(ErrorCode::StageInvalid.into());
+        // }
 
         transfer_escrow_out(
             ctx.accounts.user_sending.to_account_info(),
@@ -118,7 +118,7 @@ pub mod safe_pay {
             state_bump,
             ctx.accounts.token_program.to_account_info(),
             ctx.accounts.wallet_to_deposit_to.to_account_info(),
-            ctx.accounts.application_state.amount_tokens
+            amount
         )?;
 
         let state = &mut ctx.accounts.application_state;
@@ -210,31 +210,6 @@ pub mod safe_pay {
 
 }
 
-// #[derive(Accounts)]
-// #[instruction(instance_bump: u8, wallet_bump: u8)]
-// pub struct Initialize<'info> {
-//     #[account(
-//         seeds=[b"instance".as_ref(), user.key.as_ref()],
-//         bump = instance_bump,
-//     )]
-//     instance: AccountInfo<'info>,
-//     #[account(
-//         init,
-//         payer = user,
-//         seeds=[b"wallet".as_ref(), user.key.as_ref(), mint.key().as_ref()],
-//         bump = wallet_bump,
-//         token::mint = mint,
-//         token::authority = instance,
-//     )]
-//     wallet: Account<'info, TokenAccount>,
-//     #[account(mut)]
-//     mint: Account<'info, Mint>,
-//     user: Signer<'info>,
-//     system_program: Program<'info, System>,
-//     token_program: Program<'info, Token>,
-//     rent: Sysvar<'info, Rent>,
-// }
-
 // Each state corresponds with a separate transaction and represents different moments in the lifecycle
 // of the app.
 //
@@ -286,9 +261,6 @@ pub struct State {
     
     // Owner of the vault PDA
     user_sending: Pubkey,
-
-    // Bob
-    // user_receiving: Pubkey,
 
     // The Mint of the token that owner wants to send
     mint_of_token_being_sent: Pubkey,

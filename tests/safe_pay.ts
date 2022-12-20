@@ -323,10 +323,12 @@ describe('safe_pay', () => {
     assert.equal(b, '1337000000');
     // let bWal = anchor.web3.PublicKey;
     // bWal = bob.publicKey as (anchor.web3.PublicKey)
+    const sendAmount = new anchor.BN(10000000);
     const tx2 = await program.rpc.completeGrant(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
+      sendAmount,
       {
         accounts: {
           applicationState: pda.stateKey,
@@ -345,9 +347,37 @@ describe('safe_pay', () => {
       }
     );
 
-    // Assert that 20 tokens were sent back.
+    // Assert that 10 tokens were sent to Bob.
     const [, bobBalance] = await readAccount(bobWallet, provider);
-    assert.equal(bobBalance, '1357000000');
+    assert.equal(bobBalance, '1347000000');
+
+    // Send another 10 tokens to Bob
+    const tx3 = await program.rpc.completeGrant(
+      pda.idx,
+      pda.stateBump,
+      pda.escrowBump,
+      sendAmount,
+      {
+        accounts: {
+          applicationState: pda.stateKey,
+          escrowWalletState: pda.escrowWalletKey,
+          mintOfTokenBeingSent: mintAddress,
+          userSending: alice.publicKey,
+          userReceiving: bob.publicKey,
+          walletToDepositTo: bobWallet,
+
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+          associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+        },
+        signers: [alice],
+      }
+    );
+
+    // Assert that 10 tokens were sent to Bob.
+    const [, bobBalance2] = await readAccount(bobWallet, provider);
+    assert.equal(bobBalance2, '1357000000');
 
     // // Assert that escrow was correctly closed.
     // try {
