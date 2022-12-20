@@ -38,22 +38,12 @@ describe("defender", () => {
 
     let [statePubKey, stateBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [
-          Buffer.from("state"),
-          alice.toBuffer(),
-          mint.toBuffer(),
-          uidBuffer,
-        ],
+        [Buffer.from("state"), alice.toBuffer(), mint.toBuffer(), uidBuffer],
         program.programId
       );
     let [walletPubKey, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [
-          Buffer.from("wallet"),
-          alice.toBuffer(),
-          mint.toBuffer(),
-          uidBuffer,
-        ],
+        [Buffer.from("wallet"), alice.toBuffer(), mint.toBuffer(), uidBuffer],
         program.programId
       );
     console.log("Created PDA params");
@@ -208,7 +198,7 @@ describe("defender", () => {
       provider.connection,
       mintAddress
     );
-    [backend,] = await createUserAndAssociatedWallet(
+    [backend] = await createUserAndAssociatedWallet(
       provider.connection,
       mintAddress
     );
@@ -216,11 +206,7 @@ describe("defender", () => {
     // // Generate bob without associated token account
     // [bob,] = await createUserAndAssociatedWallet(provider.connection);
 
-    pda = await getPdaParams(
-      provider.connection,
-      alice.publicKey,
-      mintAddress
-    );
+    pda = await getPdaParams(provider.connection, alice.publicKey, mintAddress);
   });
 
   it("can initialize a vault for Alice", async () => {
@@ -262,26 +248,20 @@ describe("defender", () => {
     assert.equal(escrowBalanceInit, "0");
 
     // Deposit 10 tokens from Alice's account to the escrow
-    await program.rpc.deposit(
-      pda.idx,
-      pda.stateBump,
-      pda.escrowBump,
-      amount,
-      {
-        accounts: {
-          applicationState: pda.stateKey,
-          escrowWalletState: pda.escrowWalletKey,
-          mintOfTokenBeingSent: mintAddress,
-          userSending: alice.publicKey,
-          walletToWithdrawFrom: aliceWallet,
+    await program.rpc.deposit(pda.idx, pda.stateBump, pda.escrowBump, amount, {
+      accounts: {
+        applicationState: pda.stateKey,
+        escrowWalletState: pda.escrowWalletKey,
+        mintOfTokenBeingSent: mintAddress,
+        userSending: alice.publicKey,
+        walletToWithdrawFrom: aliceWallet,
 
-          systemProgram: anchor.web3.SystemProgram.programId,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-        },
-        signers: [alice],
-      }
-    );
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+      },
+      signers: [alice],
+    });
 
     // Assert that 10 tokens were moved from Alice's account to the escrow.
     const [, aliceBalancePost] = await readAccount(aliceWallet, provider);
@@ -320,30 +300,22 @@ describe("defender", () => {
         signers: [alice],
       }
     );
-    console.log(
-      `Initialized a new vault for Alice`
-    );
+    console.log(`Initialized a new vault for Alice`);
 
-    await program.rpc.deposit(
-      pda.idx,
-      pda.stateBump,
-      pda.escrowBump,
-      amount,
-      {
-        accounts: {
-          applicationState: pda.stateKey,
-          escrowWalletState: pda.escrowWalletKey,
-          mintOfTokenBeingSent: mintAddress,
-          userSending: alice.publicKey,
-          walletToWithdrawFrom: aliceWallet,
+    await program.rpc.deposit(pda.idx, pda.stateBump, pda.escrowBump, amount, {
+      accounts: {
+        applicationState: pda.stateKey,
+        escrowWalletState: pda.escrowWalletKey,
+        mintOfTokenBeingSent: mintAddress,
+        userSending: alice.publicKey,
+        walletToWithdrawFrom: aliceWallet,
 
-          systemProgram: anchor.web3.SystemProgram.programId,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-        },
-        signers: [alice],
-      }
-    );
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+      },
+      signers: [alice],
+    });
     // Assert that 20 tokens were moved from Alice's account to the escrow.
     const [, aliceBalancePost] = await readAccount(aliceWallet, provider);
     assert.equal(aliceBalancePost, "1317000000");
@@ -415,6 +387,41 @@ describe("defender", () => {
     // Assert that 10 tokens were sent to Bob.
     const [, bobBalance2] = await readAccount(bobWallet, provider);
     assert.equal(bobBalance2, "1357000000");
+    const [, escrowBalancePost2] = await readAccount(
+      pda.escrowWalletKey,
+      provider
+    );
+    assert.equal(escrowBalancePost2, "0");
+
+    // Fail when vault is empty
+    try {
+      assert.throws(async () => {
+        await program.rpc.completeTransaction(
+          pda.idx,
+          pda.stateBump,
+          pda.escrowBump,
+          sendAmount,
+          {
+            accounts: {
+              applicationState: pda.stateKey,
+              escrowWalletState: pda.escrowWalletKey,
+              mintOfTokenBeingSent: mintAddress,
+              userSending: alice.publicKey,
+              userReceiving: bob.publicKey,
+              backendAccount: backend.publicKey,
+              walletToDepositTo: bobWallet,
+
+              systemProgram: anchor.web3.SystemProgram.programId,
+              rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+              tokenProgram: spl.TOKEN_PROGRAM_ID,
+              associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+            },
+            signers: [alice, backend],
+          }
+        );
+      });
+      return assert.fail("Transaction should fail with empty escrow");
+    } catch (e) {}
 
     // Verify that transaction fails with only Alice's signature
     try {
@@ -432,7 +439,7 @@ describe("defender", () => {
             userReceiving: bob.publicKey,
             backendAccount: backend.publicKey,
             walletToDepositTo: bobWallet,
-  
+
             systemProgram: anchor.web3.SystemProgram.programId,
             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
             tokenProgram: spl.TOKEN_PROGRAM_ID,
@@ -444,6 +451,36 @@ describe("defender", () => {
       return assert.fail("Transaction should fail without two signatures");
     } catch (e) {
       assert.equal(e.message, "Signature verification failed");
+    }
+
+    // Verify that transaction fails with Bob's signature
+    try {
+      await program.rpc.completeTransaction(
+        pda.idx,
+        pda.stateBump,
+        pda.escrowBump,
+        sendAmount,
+        {
+          accounts: {
+            applicationState: pda.stateKey,
+            escrowWalletState: pda.escrowWalletKey,
+            mintOfTokenBeingSent: mintAddress,
+            userSending: alice.publicKey,
+            userReceiving: bob.publicKey,
+            backendAccount: backend.publicKey,
+            walletToDepositTo: bobWallet,
+
+            systemProgram: anchor.web3.SystemProgram.programId,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            tokenProgram: spl.TOKEN_PROGRAM_ID,
+            associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+          },
+          signers: [bob, backend],
+        }
+      );
+      return assert.fail("Transaction should fail without Alice's signature");
+    } catch (e) {
+      assert.equal(e.message, "unknown signer: " + bob.publicKey);
     }
   });
 
@@ -475,29 +512,21 @@ describe("defender", () => {
       }
     );
 
-    await program.rpc.deposit(
-      pda.idx,
-      pda.stateBump,
-      pda.escrowBump,
-      amount,
-      {
-        accounts: {
-          applicationState: pda.stateKey,
-          escrowWalletState: pda.escrowWalletKey,
-          mintOfTokenBeingSent: mintAddress,
-          userSending: alice.publicKey,
-          walletToWithdrawFrom: aliceWallet,
+    await program.rpc.deposit(pda.idx, pda.stateBump, pda.escrowBump, amount, {
+      accounts: {
+        applicationState: pda.stateKey,
+        escrowWalletState: pda.escrowWalletKey,
+        mintOfTokenBeingSent: mintAddress,
+        userSending: alice.publicKey,
+        walletToWithdrawFrom: aliceWallet,
 
-          systemProgram: anchor.web3.SystemProgram.programId,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-        },
-        signers: [alice],
-      }
-    );
-    console.log(
-      `Initialized a new vault for Alice`
-    );
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+      },
+      signers: [alice],
+    });
+    console.log(`Initialized a new vault for Alice`);
 
     // Assert that 20 tokens were moved from Alice's account to the escrow.
     const [, aliceBalancePost] = await readAccount(aliceWallet, provider);
@@ -509,26 +538,20 @@ describe("defender", () => {
     assert.equal(escrowBalancePost, "20000000");
 
     // Withdraw the funds back
-    await program.rpc.withdraw(
-      pda.idx,
-      pda.stateBump,
-      pda.escrowBump,
-      amount,
-      {
-        accounts: {
-          applicationState: pda.stateKey,
-          escrowWalletState: pda.escrowWalletKey,
-          mintOfTokenBeingSent: mintAddress,
-          userSending: alice.publicKey,
-          refundWallet: aliceWallet,
+    await program.rpc.withdraw(pda.idx, pda.stateBump, pda.escrowBump, amount, {
+      accounts: {
+        applicationState: pda.stateKey,
+        escrowWalletState: pda.escrowWalletKey,
+        mintOfTokenBeingSent: mintAddress,
+        userSending: alice.publicKey,
+        refundWallet: aliceWallet,
 
-          systemProgram: anchor.web3.SystemProgram.programId,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-        },
-        signers: [alice],
-      }
-    );
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+      },
+      signers: [alice],
+    });
 
     // Assert that 20 tokens were sent back.
     const [, aliceBalanceRefund] = await readAccount(aliceWallet, provider);
@@ -538,5 +561,32 @@ describe("defender", () => {
       provider
     );
     assert.equal(escrowBalancePost2, "0");
+
+    // Fail when vault is empty
+    try {
+      assert.throws(async () => {
+        await program.rpc.withdraw(
+          pda.idx,
+          pda.stateBump,
+          pda.escrowBump,
+          amount,
+          {
+            accounts: {
+              applicationState: pda.stateKey,
+              escrowWalletState: pda.escrowWalletKey,
+              mintOfTokenBeingSent: mintAddress,
+              userSending: alice.publicKey,
+              refundWallet: aliceWallet,
+
+              systemProgram: anchor.web3.SystemProgram.programId,
+              rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+              tokenProgram: spl.TOKEN_PROGRAM_ID,
+            },
+            signers: [alice],
+          }
+        );
+      });
+      return assert.fail("Transaction should fail with empty escrow");
+    } catch (e) {}
   });
 });
