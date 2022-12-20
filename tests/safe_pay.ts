@@ -230,7 +230,7 @@ describe("safe_pay", () => {
     const amount = new anchor.BN(10000000);
 
     // Initialize vault account and fund the account
-    await program.rpc.initializeNewGrant(
+    await program.rpc.initializeNewVault(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -263,7 +263,7 @@ describe("safe_pay", () => {
     assert.equal(escrowBalanceInit, "0");
 
     // Deposit 10 tokens from Alice's account to the escrow
-    await program.rpc.depositToVault(
+    await program.rpc.deposit(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -296,7 +296,6 @@ describe("safe_pay", () => {
 
     const state = await program.account.state.fetch(pda.stateKey);
     assert.equal(state.balance.toString(), "10000000");
-    assert.equal(state.stage.toString(), "1");
   });
 
   it("can send escrow funds to Bob", async () => {
@@ -306,7 +305,7 @@ describe("safe_pay", () => {
     const amount = new anchor.BN(20000000);
 
     // Initialize mint account and fund the account
-    await program.rpc.initializeNewGrant(
+    await program.rpc.initializeNewVault(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -331,7 +330,7 @@ describe("safe_pay", () => {
       `Initialized a new Safe Pay instance. Alice will pay bob 20 tokens`
     );
 
-    await program.rpc.depositToVault(
+    await program.rpc.deposit(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -374,7 +373,7 @@ describe("safe_pay", () => {
     // let bWal = anchor.web3.PublicKey;
     // bWal = bob.publicKey as (anchor.web3.PublicKey)
     const sendAmount = new anchor.BN(10000000);
-    await program.rpc.completeGrant(
+    await program.rpc.completeTransaction(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -402,7 +401,7 @@ describe("safe_pay", () => {
     assert.equal(bobBalance, "1347000000");
 
     // Send another 10 tokens to Bob
-    await program.rpc.completeGrant(
+    await program.rpc.completeTransaction(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -448,7 +447,7 @@ describe("safe_pay", () => {
     const amount = new anchor.BN(20000000);
 
     // Initialize mint account and fund the account
-    await program.rpc.initializeNewGrant(
+    await program.rpc.initializeNewVault(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -470,7 +469,7 @@ describe("safe_pay", () => {
       }
     );
 
-    await program.rpc.depositToVault(
+    await program.rpc.deposit(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -505,7 +504,7 @@ describe("safe_pay", () => {
     assert.equal(escrowBalancePost, "20000000");
     console.log("hiii", aliceWallet, alice.publicKey);
     // Withdraw the funds back
-    await program.rpc.pullBack(
+    await program.rpc.withdraw(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -544,6 +543,5 @@ describe("safe_pay", () => {
 
     const state = await program.account.state.fetch(pda.stateKey);
     assert.equal(state.balance.toString(), "20000000");
-    assert.equal(state.stage.toString(), "3");
   });
 });
