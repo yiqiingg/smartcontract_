@@ -152,7 +152,7 @@ pub mod safe_pay {
         Ok(())
     }
 
-    pub fn initialize_new_grant(ctx: Context<InitializeNewGrant>, application_idx: u64, state_bump: u8, _wallet_bump: u8, amount: u64) -> Result<()> {
+    pub fn initialize_new_grant(ctx: Context<InitializeNewGrant>, application_idx: u64, _state_bump: u8, _wallet_bump: u8, _amount: u64) -> Result<()> {
 
         // Set the state attributes
         let state = &mut ctx.accounts.application_state;
@@ -161,10 +161,13 @@ pub mod safe_pay {
         // state.user_receiving = ctx.accounts.user_receiving.key().clone();
         state.mint_of_token_being_sent = ctx.accounts.mint_of_token_being_sent.key().clone();
         state.escrow_wallet = ctx.accounts.escrow_wallet_state.key().clone();
-        state.amount_tokens = amount;
+        state.balance = 0;
 
-        msg!("Initialized new Safe Transfer instance for {}", amount);
+        msg!("Initialized new Safe Transfer instance for Alice: {}", ctx.accounts.user_sending.key());
+        Ok(())
+    }
 
+    pub fn deposit_to_vault(ctx: Context<Deposit>, application_idx: u64, state_bump: u8, _wallet_bump: u8, amount: u64) -> Result<()> {
         // CPI time! we now need to call into the Token program to transfer our funds to the 
         // Escrow wallet. Our state account account is a PDA, which means that no private key
         // exists for the corresponding public key and therefore this key was not signed in the original 
@@ -174,13 +177,13 @@ pub mod safe_pay {
         // This specific step is very different compared to Ethereum. In Ethereum, accounts need to first set allowances towards 
         // a specific contract (like ZeroEx, Uniswap, Curve..) before the contract is able to withdraw funds. In this other case,
         // the SafePay program can use Bob's signature to "authenticate" the `transfer()` instruction sent to the token contract.
+        let state = &mut ctx.accounts.application_state;
         let bump_vector = state_bump.to_le_bytes();
         let mint_of_token_being_sent_pk = ctx.accounts.mint_of_token_being_sent.key().clone();
         let application_idx_bytes = application_idx.to_le_bytes();
         let inner = vec![
             b"state".as_ref(),
             ctx.accounts.user_sending.key.as_ref(),
-            // ctx.accounts.user_receiving.key.as_ref(),
             mint_of_token_being_sent_pk.as_ref(), 
             application_idx_bytes.as_ref(),
             bump_vector.as_ref(),
@@ -199,11 +202,13 @@ pub mod safe_pay {
             outer.as_slice(),
         );
 
+        msg!("made it here");
         // The `?` at the end will cause the function to return early in case of an error.
         // This pattern is common in Rust.
-        anchor_spl::token::transfer(cpi_ctx, state.amount_tokens)?;
+        anchor_spl::token::transfer(cpi_ctx, amount)?;
 
         // Mark stage as deposited.
+        state.balance += amount;
         state.stage = Stage::FundsDeposited.to_code();
         Ok(())
     }
@@ -268,9 +273,6 @@ pub struct State {
     // The escrow wallet
     escrow_wallet: Pubkey,
 
-    // The amount of tokens that owner wants to send
-    amount_tokens: u64,
-
     // Balance of tokens that owner has in vault
     balance: u64,
 
@@ -325,6 +327,43 @@ pub struct InitializeNewGrant<'info> {
     system_program: Program<'info, System>,
     token_program: Program<'info, Token>,
     rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(application_idx: u64, state_bump: u8, wallet_bump: u8)]
+pub struct Deposit<'info> {
+        // Derived PDAs
+        #[account(
+            mut,
+            seeds=[b"state".as_ref(), user_sending.key().as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
+            bump = state_bump,
+        )]
+        application_state: Account<'info, State>,
+        #[account(
+            mut,
+            seeds=[b"wallet".as_ref(), user_sending.key().as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
+            bump = wallet_bump,
+        )]
+        escrow_wallet_state: Account<'info, TokenAccount>,
+    
+        // Users and accounts in the system
+        #[account(mut)]
+        user_sending: Signer<'info>,                     // Alice
+        // user_receiving: AccountInfo<'info>,              // Bob
+        mint_of_token_being_sent: Account<'info, Mint>,  // USDC
+    
+        // Alice's USDC wallet that has already approved the escrow wallet
+        #[account(
+            mut,
+            constraint=wallet_to_withdraw_from.owner == user_sending.key(),
+            constraint=wallet_to_withdraw_from.mint == mint_of_token_being_sent.key()
+        )]
+        wallet_to_withdraw_from: Account<'info, TokenAccount>,
+    
+        // Application level accounts
+        system_program: Program<'info, System>,
+        token_program: Program<'info, Token>,
+        rent: Sysvar<'info, Rent>,
 }
 
 #[derive(Accounts)]

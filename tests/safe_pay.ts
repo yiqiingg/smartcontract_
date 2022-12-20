@@ -1,8 +1,8 @@
-import assert from 'assert';
-import * as anchor from '@project-serum/anchor';
-import { Program } from '@project-serum/anchor';
-import * as spl from '@solana/spl-token';
-import { SafePay } from '../target/types/safe_pay';
+import assert from "assert";
+import * as anchor from "@project-serum/anchor";
+import { Program } from "@project-serum/anchor";
+import * as spl from "@solana/spl-token";
+import { SafePay } from "../target/types/safe_pay";
 
 interface PDAParameters {
   escrowWalletKey: anchor.web3.PublicKey;
@@ -12,7 +12,7 @@ interface PDAParameters {
   idx: anchor.BN;
 }
 
-describe('safe_pay', () => {
+describe("safe_pay", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.Provider.env();
   anchor.setProvider(provider);
@@ -34,12 +34,12 @@ describe('safe_pay', () => {
     mint: anchor.web3.PublicKey
   ): Promise<PDAParameters> => {
     const uid = new anchor.BN(parseInt((Date.now() / 1000).toString()));
-    const uidBuffer = uid.toBuffer('le', 8);
+    const uidBuffer = uid.toBuffer("le", 8);
 
     let [statePubKey, stateBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
-          Buffer.from('state'),
+          Buffer.from("state"),
           alice.toBuffer(),
           // bob.toBuffer(),
           mint.toBuffer(),
@@ -50,7 +50,7 @@ describe('safe_pay', () => {
     let [walletPubKey, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
-          Buffer.from('wallet'),
+          Buffer.from("wallet"),
           alice.toBuffer(),
           // bob.toBuffer(),
           mint.toBuffer(),
@@ -173,7 +173,7 @@ describe('safe_pay', () => {
     const tokenInfoLol = await provider.connection.getAccountInfo(
       accountPublicKey
     );
-    console.log(accountPublicKey, tokenInfoLol, 'stuckkkkk');
+    console.log(accountPublicKey, tokenInfoLol, "stuckkkkk");
     const data = Buffer.from(tokenInfoLol.data);
     const accountInfo: spl.AccountInfo = spl.AccountLayout.decode(data);
 
@@ -223,15 +223,14 @@ describe('safe_pay', () => {
     );
   });
 
-  it('can initialize a safe payment by Alice', async () => {
+  it("can initialize a safe payment by Alice", async () => {
     const [, aliceBalancePre] = await readAccount(aliceWallet, provider);
-    assert.equal(aliceBalancePre, '1337000000');
+    assert.equal(aliceBalancePre, "1337000000");
 
-    const amount = new anchor.BN(20000000);
+    const amount = new anchor.BN(10000000);
 
-    console.log("made it");
-    // Initialize mint account and fund the account
-    const tx1 = await program.rpc.initializeNewGrant(
+    // Initialize vault account and fund the account
+    await program.rpc.initializeNewGrant(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -252,32 +251,62 @@ describe('safe_pay', () => {
         signers: [alice],
       }
     );
-    console.log(
-      `Initialized a new Safe Pay instance. Alice will pay bob 20 tokens`
+    console.log(`Initialized a new vault for Alice`);
+
+    // Assert that Alice's account balance is the same, and the escrow's balance is 0
+    const [, aliceBalanceInit] = await readAccount(aliceWallet, provider);
+    assert.equal(aliceBalanceInit, "1337000000");
+    const [, escrowBalanceInit] = await readAccount(
+      pda.escrowWalletKey,
+      provider
+    );
+    assert.equal(escrowBalanceInit, "0");
+
+    // Deposit 10 tokens from Alice's account to the escrow
+    await program.rpc.depositToVault(
+      pda.idx,
+      pda.stateBump,
+      pda.escrowBump,
+      amount,
+      {
+        accounts: {
+          applicationState: pda.stateKey,
+          escrowWalletState: pda.escrowWalletKey,
+          mintOfTokenBeingSent: mintAddress,
+          userSending: alice.publicKey,
+          // userReceiving: bob.publicKey,
+          walletToWithdrawFrom: aliceWallet,
+
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+        },
+        signers: [alice],
+      }
     );
 
-    // Assert that 20 tokens were moved from Alice's account to the escrow.
+    // Assert that 10 tokens were moved from Alice's account to the escrow.
     const [, aliceBalancePost] = await readAccount(aliceWallet, provider);
-    assert.equal(aliceBalancePost, '1317000000');
+    assert.equal(aliceBalancePost, "1327000000");
     const [, escrowBalancePost] = await readAccount(
       pda.escrowWalletKey,
       provider
     );
-    assert.equal(escrowBalancePost, '20000000');
+    assert.equal(escrowBalancePost, "10000000");
 
     const state = await program.account.state.fetch(pda.stateKey);
-    assert.equal(state.amountTokens.toString(), '20000000');
-    assert.equal(state.stage.toString(), '1');
+    assert.equal(state.balance.toString(), "10000000");
+    assert.equal(state.stage.toString(), "1");
   });
 
-  it('can send escrow funds to Bob', async () => {
+  it("can send escrow funds to Bob", async () => {
     const [, aliceBalancePre] = await readAccount(aliceWallet, provider);
-    assert.equal(aliceBalancePre, '1337000000');
+    assert.equal(aliceBalancePre, "1337000000");
 
     const amount = new anchor.BN(20000000);
 
     // Initialize mint account and fund the account
-    const tx1 = await program.rpc.initializeNewGrant(
+    await program.rpc.initializeNewGrant(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -302,14 +331,35 @@ describe('safe_pay', () => {
       `Initialized a new Safe Pay instance. Alice will pay bob 20 tokens`
     );
 
+    await program.rpc.depositToVault(
+      pda.idx,
+      pda.stateBump,
+      pda.escrowBump,
+      amount,
+      {
+        accounts: {
+          applicationState: pda.stateKey,
+          escrowWalletState: pda.escrowWalletKey,
+          mintOfTokenBeingSent: mintAddress,
+          userSending: alice.publicKey,
+          // userReceiving: bob.publicKey,
+          walletToWithdrawFrom: aliceWallet,
+
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+        },
+        signers: [alice],
+      }
+    );
     // Assert that 20 tokens were moved from Alice's account to the escrow.
     const [, aliceBalancePost] = await readAccount(aliceWallet, provider);
-    assert.equal(aliceBalancePost, '1317000000');
+    assert.equal(aliceBalancePost, "1317000000");
     const [, escrowBalancePost] = await readAccount(
       pda.escrowWalletKey,
       provider
     );
-    assert.equal(escrowBalancePost, '20000000');
+    assert.equal(escrowBalancePost, "20000000");
 
     // Create a token account for Bob.
     // const bobTokenAccount = await spl.Token.getAssociatedTokenAddress(
@@ -320,11 +370,11 @@ describe('safe_pay', () => {
     // );
     // console.log(bobTokenAccount, 'bob addressss');
     const [, b] = await readAccount(bobWallet, provider);
-    assert.equal(b, '1337000000');
+    assert.equal(b, "1337000000");
     // let bWal = anchor.web3.PublicKey;
     // bWal = bob.publicKey as (anchor.web3.PublicKey)
     const sendAmount = new anchor.BN(10000000);
-    const tx2 = await program.rpc.completeGrant(
+    await program.rpc.completeGrant(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -349,10 +399,10 @@ describe('safe_pay', () => {
 
     // Assert that 10 tokens were sent to Bob.
     const [, bobBalance] = await readAccount(bobWallet, provider);
-    assert.equal(bobBalance, '1347000000');
+    assert.equal(bobBalance, "1347000000");
 
     // Send another 10 tokens to Bob
-    const tx3 = await program.rpc.completeGrant(
+    await program.rpc.completeGrant(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -377,7 +427,7 @@ describe('safe_pay', () => {
 
     // Assert that 10 tokens were sent to Bob.
     const [, bobBalance2] = await readAccount(bobWallet, provider);
-    assert.equal(bobBalance2, '1357000000');
+    assert.equal(bobBalance2, "1357000000");
 
     // // Assert that escrow was correctly closed.
     // try {
@@ -391,14 +441,36 @@ describe('safe_pay', () => {
     // }
   });
 
-  it('can pull back funds once they are deposited', async () => {
+  it("can pull back funds once they are deposited", async () => {
     const [, aliceBalancePre] = await readAccount(aliceWallet, provider);
-    assert.equal(aliceBalancePre, '1337000000');
+    assert.equal(aliceBalancePre, "1337000000");
 
     const amount = new anchor.BN(20000000);
 
     // Initialize mint account and fund the account
-    const tx1 = await program.rpc.initializeNewGrant(
+    await program.rpc.initializeNewGrant(
+      pda.idx,
+      pda.stateBump,
+      pda.escrowBump,
+      amount,
+      {
+        accounts: {
+          applicationState: pda.stateKey,
+          escrowWalletState: pda.escrowWalletKey,
+          mintOfTokenBeingSent: mintAddress,
+          userSending: alice.publicKey,
+          // userReceiving: bob.publicKey,
+          walletToWithdrawFrom: aliceWallet,
+
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+        },
+        signers: [alice],
+      }
+    );
+
+    await program.rpc.depositToVault(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -425,15 +497,15 @@ describe('safe_pay', () => {
 
     // Assert that 20 tokens were moved from Alice's account to the escrow.
     const [, aliceBalancePost] = await readAccount(aliceWallet, provider);
-    assert.equal(aliceBalancePost, '1317000000');
+    assert.equal(aliceBalancePost, "1317000000");
     const [, escrowBalancePost] = await readAccount(
       pda.escrowWalletKey,
       provider
     );
-    assert.equal(escrowBalancePost, '20000000');
-    console.log('hiii', aliceWallet, alice.publicKey);
+    assert.equal(escrowBalancePost, "20000000");
+    console.log("hiii", aliceWallet, alice.publicKey);
     // Withdraw the funds back
-    const tx2 = await program.rpc.pullBack(
+    await program.rpc.pullBack(
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
@@ -457,12 +529,12 @@ describe('safe_pay', () => {
 
     // Assert that 20 tokens were sent back.
     const [, aliceBalanceRefund] = await readAccount(aliceWallet, provider);
-    assert.equal(aliceBalanceRefund, '1337000000');
+    assert.equal(aliceBalanceRefund, "1337000000");
 
     // Assert that escrow was correctly closed.
     try {
       await readAccount(pda.escrowWalletKey, provider);
-      return assert.fail('Account should be closed');
+      return assert.fail("Account should be closed");
     } catch (e) {
       assert.equal(
         e.message,
@@ -471,7 +543,7 @@ describe('safe_pay', () => {
     }
 
     const state = await program.account.state.fetch(pda.stateKey);
-    assert.equal(state.amountTokens.toString(), '20000000');
-    assert.equal(state.stage.toString(), '3');
+    assert.equal(state.balance.toString(), "20000000");
+    assert.equal(state.stage.toString(), "3");
   });
 });
