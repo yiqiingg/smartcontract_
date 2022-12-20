@@ -52,7 +52,6 @@ fn transfer_escrow_out<'info>(
     let inner = vec![
         b"state".as_ref(),
         user_sending.key.as_ref(),
-        user_receiving.key.as_ref(),
         mint_of_token_being_sent_pk.as_ref(), 
         application_idx_bytes.as_ref(),
         bump_vector.as_ref(),
@@ -364,28 +363,26 @@ pub struct InitializeNewGrant<'info> {
 pub struct CompleteGrant<'info> {
     #[account(
         mut,
-        seeds=[b"state".as_ref(), user_sending.key().as_ref(), user_receiving.key.as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
+        seeds=[b"state".as_ref(), user_sending.key().as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
         bump = state_bump,
-        // bump
         has_one = user_sending,
-        // has_one = user_receiving,
         has_one = mint_of_token_being_sent,
     )]
     application_state: Account<'info, State>,
     #[account(
         mut,
-        seeds=[b"wallet".as_ref(), user_sending.key().as_ref(), user_receiving.key.as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
+        seeds=[b"wallet".as_ref(), user_sending.key().as_ref(), mint_of_token_being_sent.key().as_ref(), application_idx.to_le_bytes().as_ref()],
         bump = wallet_bump,
-        // bump
     )]
     escrow_wallet_state: Account<'info, TokenAccount>,
 
-    #[account(
-        // init_if_needed,
-        // payer = user_receiving,
-        associated_token::mint = mint_of_token_being_sent,
-        associated_token::authority = user_receiving,
-    )]
+    // #[account(
+    //     // init_if_needed,
+    //     // payer = user_receiving,
+    //     associated_token::mint = mint_of_token_being_sent,
+    //     associated_token::authority = user_receiving,
+    // )]
+    #[account(mut)]
     wallet_to_deposit_to: Account<'info, TokenAccount>,   // Bob's USDC wallet (will be initialized if it did not exist)
 
     // Users and accounts in the system

@@ -288,7 +288,7 @@ describe('safe_pay', () => {
           escrowWalletState: pda.escrowWalletKey,
           mintOfTokenBeingSent: mintAddress,
           userSending: alice.publicKey,
-          userReceiving: bob.publicKey,
+          // userReceiving: bob.publicKey,
           walletToWithdrawFrom: aliceWallet,
 
           systemProgram: anchor.web3.SystemProgram.programId,
