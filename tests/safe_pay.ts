@@ -379,7 +379,7 @@ describe('safe_pay', () => {
           escrowWalletState: pda.escrowWalletKey,
           mintOfTokenBeingSent: mintAddress,
           userSending: alice.publicKey,
-          userReceiving: bob.publicKey,
+          // userReceiving: bob.publicKey,
           walletToWithdrawFrom: aliceWallet,
 
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -407,14 +407,14 @@ describe('safe_pay', () => {
       pda.idx,
       pda.stateBump,
       pda.escrowBump,
-      amount,
+      // amount,
       {
         accounts: {
           applicationState: pda.stateKey,
           escrowWalletState: pda.escrowWalletKey,
           mintOfTokenBeingSent: mintAddress,
           userSending: alice.publicKey,
-          userReceiving: bob.publicKey,
+          // userReceiving: bob.publicKey,
           refundWallet: aliceWallet,
 
           systemProgram: anchor.web3.SystemProgram.programId,
