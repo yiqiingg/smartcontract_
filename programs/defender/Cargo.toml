@@ -1,0 +1,22 @@
+[package]
+name = "defender"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "defender"
+
+[features]
+no-entrypoint = []
+no-idl = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = ">= 0.25.0"
+anchor-spl = ">= 0.25.0"
+spl-associated-token-account = "1.0.5"
+spl-token = "3.2.0"
+num_enum = "0.5.4"
