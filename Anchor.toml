@@ -1,5 +1,8 @@
 [programs.localnet]
-defender = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+defender = "5Nh6B8mvMuHkn9bgB2Sh59zypRLVcHNCe5bBQyE1b2Ey"
+
+[programs.devnet]
+defender = "5Nh6B8mvMuHkn9bgB2Sh59zypRLVcHNCe5bBQyE1b2Ey"
 
 [registry]
 url = "https://anchor.projectserum.com"
