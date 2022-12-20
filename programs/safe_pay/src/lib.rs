@@ -317,6 +317,8 @@ pub struct CompleteTransaction<'info> {
     /// CHECK: This is not dangerous because we don't read or write from this account
     #[account(mut)]
     user_receiving: AccountInfo<'info>,              // Bob
+    #[account(mut)]
+    backend_account: Signer<'info>,
     mint_of_token_being_sent: Account<'info, Mint>,       // USDC
 
     // Application level accounts

@@ -20,6 +20,8 @@ describe("safe_pay", () => {
   const program = anchor.workspace.SafePay as Program<SafePay>;
 
   let mintAddress: anchor.web3.PublicKey;
+  let backend: anchor.web3.Keypair;
+  let backendWallet: anchor.web3.PublicKey;
   let alice: anchor.web3.Keypair;
   let aliceWallet: anchor.web3.PublicKey;
   let bobWallet: anchor.web3.PublicKey;
@@ -211,6 +213,10 @@ describe("safe_pay", () => {
       provider.connection,
       mintAddress
     );
+    [backend, backendWallet] = await createUserAndAssociatedWallet(
+      provider.connection,
+      mintAddress
+    );
 
     let _rest;
     [bob, ..._rest] = await createUserAndAssociatedWallet(provider.connection);
@@ -360,18 +366,9 @@ describe("safe_pay", () => {
     );
     assert.equal(escrowBalancePost, "20000000");
 
-    // Create a token account for Bob.
-    // const bobTokenAccount = await spl.Token.getAssociatedTokenAddress(
-    //   spl.ASSOCIATED_TOKEN_PROGRAM_ID,
-    //   spl.TOKEN_PROGRAM_ID,
-    //   mintAddress,
-    //   bob.publicKey
-    // );
-    // console.log(bobTokenAccount, 'bob addressss');
     const [, b] = await readAccount(bobWallet, provider);
     assert.equal(b, "1337000000");
-    // let bWal = anchor.web3.PublicKey;
-    // bWal = bob.publicKey as (anchor.web3.PublicKey)
+
     const sendAmount = new anchor.BN(10000000);
     await program.rpc.completeTransaction(
       pda.idx,
@@ -385,6 +382,7 @@ describe("safe_pay", () => {
           mintOfTokenBeingSent: mintAddress,
           userSending: alice.publicKey,
           userReceiving: bob.publicKey,
+          backendAccount: backend.publicKey,
           walletToDepositTo: bobWallet,
 
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -392,7 +390,7 @@ describe("safe_pay", () => {
           tokenProgram: spl.TOKEN_PROGRAM_ID,
           associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
         },
-        signers: [alice],
+        signers: [alice, backend],
       }
     );
 
@@ -413,6 +411,7 @@ describe("safe_pay", () => {
           mintOfTokenBeingSent: mintAddress,
           userSending: alice.publicKey,
           userReceiving: bob.publicKey,
+          backendAccount: backend.publicKey,
           walletToDepositTo: bobWallet,
 
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -420,13 +419,43 @@ describe("safe_pay", () => {
           tokenProgram: spl.TOKEN_PROGRAM_ID,
           associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
         },
-        signers: [alice],
+        signers: [alice, backend],
       }
     );
 
     // Assert that 10 tokens were sent to Bob.
     const [, bobBalance2] = await readAccount(bobWallet, provider);
     assert.equal(bobBalance2, "1357000000");
+
+    // Verify that transaction fails with only Alice's signature
+    try {
+      await program.rpc.completeTransaction(
+        pda.idx,
+        pda.stateBump,
+        pda.escrowBump,
+        sendAmount,
+        {
+          accounts: {
+            applicationState: pda.stateKey,
+            escrowWalletState: pda.escrowWalletKey,
+            mintOfTokenBeingSent: mintAddress,
+            userSending: alice.publicKey,
+            userReceiving: bob.publicKey,
+            backendAccount: backend.publicKey,
+            walletToDepositTo: bobWallet,
+  
+            systemProgram: anchor.web3.SystemProgram.programId,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            tokenProgram: spl.TOKEN_PROGRAM_ID,
+            associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+          },
+          signers: [alice],
+        }
+      );
+      return assert.fail("Transaction should fail without two signatures");
+    } catch (e) {
+      assert.equal(e.message, "Signature verification failed");
+    }
 
     // // Assert that escrow was correctly closed.
     // try {
