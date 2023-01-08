@@ -1,5 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token::AssociatedToken, token::{Mint, Token, TokenAccount, Transfer}};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Mint, Token, TokenAccount, Transfer},
+};
 
 declare_id!("5Nh6B8mvMuHkn9bgB2Sh59zypRLVcHNCe5bBQyE1b2Ey");
 
@@ -15,7 +18,7 @@ declare_id!("5Nh6B8mvMuHkn9bgB2Sh59zypRLVcHNCe5bBQyE1b2Ey");
 //     StageInvalid,
 // }
 
-// 
+//
 /// A small utility function that allows us to transfer funds out of the Escrow.
 ///
 /// # Arguments
@@ -40,7 +43,7 @@ fn transfer_escrow_out<'info>(
     state_bump: u8,
     token_program: AccountInfo<'info>,
     destination_wallet: AccountInfo<'info>,
-    amount: u64
+    amount: u64,
 ) -> Result<()> {
     let bump_vector = state_bump.to_le_bytes();
     let mint_of_token_being_sent_pk = mint_of_token_being_sent.key().clone();
@@ -48,14 +51,14 @@ fn transfer_escrow_out<'info>(
     let inner = vec![
         b"state".as_ref(),
         user_sending.key.as_ref(),
-        mint_of_token_being_sent_pk.as_ref(), 
+        mint_of_token_being_sent_pk.as_ref(),
         application_idx_bytes.as_ref(),
         bump_vector.as_ref(),
     ];
     let outer = vec![inner.as_slice()];
 
     msg!("start transfer");
-    let transfer_instruction = Transfer{
+    let transfer_instruction = Transfer {
         from: escrow_wallet.to_account_info(),
         to: destination_wallet,
         authority: state.to_account_info(),
@@ -74,10 +77,16 @@ fn transfer_escrow_out<'info>(
 #[program]
 pub mod defender {
 
-    use anchor_spl::token::Transfer;
     use super::*;
+    use anchor_spl::token::Transfer;
 
-    pub fn initialize_new_vault(ctx: Context<InitializeNewVault>, application_idx: u64, _state_bump: u8, _wallet_bump: u8, _amount: u64) -> Result<()> {
+    pub fn initialize_new_vault(
+        ctx: Context<InitializeNewVault>,
+        application_idx: u64,
+        _state_bump: u8,
+        _wallet_bump: u8,
+        _amount: u64,
+    ) -> Result<()> {
         // Set the state attributes
         let state = &mut ctx.accounts.application_state;
         state.idx = application_idx;
@@ -85,11 +94,20 @@ pub mod defender {
         state.mint_of_token_being_sent = ctx.accounts.mint_of_token_being_sent.key().clone();
         state.escrow_wallet = ctx.accounts.escrow_wallet_state.key().clone();
 
-        msg!("Initialized new Defender instance for Alice: {}", ctx.accounts.user_sending.key());
+        msg!(
+            "Initialized new Defender instance for Alice: {}",
+            ctx.accounts.user_sending.key()
+        );
         Ok(())
     }
 
-    pub fn deposit(ctx: Context<Deposit>, application_idx: u64, state_bump: u8, _wallet_bump: u8, amount: u64) -> Result<()> {
+    pub fn deposit(
+        ctx: Context<Deposit>,
+        application_idx: u64,
+        state_bump: u8,
+        _wallet_bump: u8,
+        amount: u64,
+    ) -> Result<()> {
         // Compute signer seeds for state PDA
         let bump_vector = state_bump.to_le_bytes();
         let mint_of_token_being_sent_pk = ctx.accounts.mint_of_token_being_sent.key().clone();
@@ -97,14 +115,14 @@ pub mod defender {
         let inner = vec![
             b"state".as_ref(),
             ctx.accounts.user_sending.key.as_ref(),
-            mint_of_token_being_sent_pk.as_ref(), 
+            mint_of_token_being_sent_pk.as_ref(),
             application_idx_bytes.as_ref(),
             bump_vector.as_ref(),
         ];
         let outer = vec![inner.as_slice()];
 
         // Transfer funds from Alice's wallet to the vault
-        let transfer_instruction = Transfer{
+        let transfer_instruction = Transfer {
             from: ctx.accounts.wallet_to_withdraw_from.to_account_info(),
             to: ctx.accounts.escrow_wallet_state.to_account_info(),
             authority: ctx.accounts.user_sending.to_account_info(),
@@ -119,7 +137,13 @@ pub mod defender {
         Ok(())
     }
 
-    pub fn complete_transaction(ctx: Context<CompleteTransaction>, application_idx: u64, state_bump: u8, _wallet_bump: u8, amount: u64) -> Result<()> {
+    pub fn complete_transaction(
+        ctx: Context<CompleteTransaction>,
+        application_idx: u64,
+        state_bump: u8,
+        _wallet_bump: u8,
+        amount: u64,
+    ) -> Result<()> {
         transfer_escrow_out(
             ctx.accounts.user_sending.to_account_info(),
             ctx.accounts.mint_of_token_being_sent.to_account_info(),
@@ -129,12 +153,18 @@ pub mod defender {
             state_bump,
             ctx.accounts.token_program.to_account_info(),
             ctx.accounts.wallet_to_deposit_to.to_account_info(),
-            amount
+            amount,
         )?;
         Ok(())
     }
 
-    pub fn withdraw(ctx: Context<Withdraw>, application_idx: u64, state_bump: u8, _wallet_bump: u8, amount: u64) -> Result<()> {
+    pub fn withdraw(
+        ctx: Context<Withdraw>,
+        application_idx: u64,
+        state_bump: u8,
+        _wallet_bump: u8,
+        amount: u64,
+    ) -> Result<()> {
         transfer_escrow_out(
             ctx.accounts.user_sending.to_account_info(),
             ctx.accounts.mint_of_token_being_sent.to_account_info(),
@@ -148,17 +178,15 @@ pub mod defender {
         )?;
         Ok(())
     }
-
 }
 
 // 1 State account instance == 1 Defender instance
 #[account]
 #[derive(Default)]
 pub struct State {
-
     // A primary key that allows us to derive other important accounts
     idx: u64,
-    
+
     // Owner of the vault PDA
     user_sending: Pubkey,
 
@@ -166,13 +194,12 @@ pub struct State {
     mint_of_token_being_sent: Pubkey,
 
     // The escrow wallet
-    escrow_wallet: Pubkey
+    escrow_wallet: Pubkey,
 }
 
 #[derive(Accounts)]
 #[instruction(application_idx: u64, state_bump: u8, wallet_bump: u8)]
 pub struct InitializeNewVault<'info> {
-
     // Derived PDAs
     #[account(
         init,
@@ -194,8 +221,8 @@ pub struct InitializeNewVault<'info> {
 
     // Users and accounts in the system
     #[account(mut)]
-    user_sending: Signer<'info>,                     // Alice
-    mint_of_token_being_sent: Account<'info, Mint>,  // USDC
+    user_sending: Signer<'info>, // Alice
+    mint_of_token_being_sent: Account<'info, Mint>, // USDC
 
     // Alice's USDC wallet that has already approved the escrow wallet
     #[account(
@@ -230,8 +257,8 @@ pub struct Deposit<'info> {
 
     // Users and accounts in the system
     #[account(mut)]
-    user_sending: Signer<'info>,                     // Alice
-    mint_of_token_being_sent: Account<'info, Mint>,  // USDC
+    user_sending: Signer<'info>, // Alice
+    mint_of_token_being_sent: Account<'info, Mint>, // USDC
 
     // Alice's USDC wallet that has already approved the escrow wallet
     #[account(
@@ -266,17 +293,20 @@ pub struct CompleteTransaction<'info> {
     escrow_wallet_state: Account<'info, TokenAccount>,
 
     #[account(mut)]
-    wallet_to_deposit_to: Account<'info, TokenAccount>,   // Bob's USDC wallet (will be initialized if it did not exist)
+    wallet_to_deposit_to: Account<'info, TokenAccount>, // Bob's USDC wallet (will be initialized if it did not exist)
 
     // Users and accounts in the system
     #[account(mut)]
-    user_sending: Signer<'info>,                     // Alice
+    user_sending: Signer<'info>, // Alice
     /// CHECK: This is not dangerous because we don't read or write from this account
     #[account(mut)]
-    user_receiving: AccountInfo<'info>,              // Bob
-    #[account(mut)]
-    backend_account: Signer<'info>,                  // Application backend signer
-    mint_of_token_being_sent: Account<'info, Mint>,       // USDC
+    user_receiving: AccountInfo<'info>, // Bob
+    #[account(
+        mut,
+        address = Pubkey::new_from_array([47,200,72,129,31,62,119,90,57,252,240,34,145,192,141,109,173,173,114,196,154,194,157,116,205,124,93,252,35,148,185,171])
+    )]
+    backend_account: Signer<'info>, // Application backend signer
+    mint_of_token_being_sent: Account<'info, Mint>, // USDC
 
     // Application level accounts
     system_program: Program<'info, System>,

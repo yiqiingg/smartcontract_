@@ -96,9 +96,12 @@ describe("defender", () => {
 
   const createUserAndAssociatedWallet = async (
     _connection: anchor.web3.Connection,
-    mint?: anchor.web3.PublicKey
+    mint?: anchor.web3.PublicKey,
+    backendSecretKey?: Uint8Array
   ): Promise<[anchor.web3.Keypair, anchor.web3.PublicKey | undefined]> => {
-    const user = new anchor.web3.Keypair();
+    const user = backendSecretKey
+      ? anchor.web3.Keypair.fromSecretKey(backendSecretKey)
+      : new anchor.web3.Keypair();
     let userAssociatedTokenAccount: anchor.web3.PublicKey | undefined =
       undefined;
 
@@ -190,6 +193,13 @@ describe("defender", () => {
 
   beforeEach(async () => {
     mintAddress = await createMint(provider.connection);
+    const backendKey = Uint8Array.from([
+      144, 247, 101, 216, 217, 74, 146, 124, 188, 130, 198, 201, 95, 115, 70,
+      28, 91, 48, 180, 87, 222, 168, 5, 197, 197, 156, 178, 231, 122, 87, 74,
+      87, 47, 200, 72, 129, 31, 62, 119, 90, 57, 252, 240, 34, 145, 192, 141,
+      109, 173, 173, 114, 196, 154, 194, 157, 116, 205, 124, 93, 252, 35, 148,
+      185, 171,
+    ]);
     [alice, aliceWallet] = await createUserAndAssociatedWallet(
       provider.connection,
       mintAddress
@@ -200,7 +210,8 @@ describe("defender", () => {
     );
     [backend] = await createUserAndAssociatedWallet(
       provider.connection,
-      mintAddress
+      mintAddress,
+      backendKey
     );
 
     // // Generate bob without associated token account
